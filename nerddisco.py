@@ -4,11 +4,13 @@ import sys
 import discogs_client
 import csv
 import re
+import os
 
 csv_path = sys.argv[1]
 token = sys.argv[2]
+username = sys.argv[3]
 
-nonalphanumeric = re.compile('[^a-zA-Z\d\s:]')
+alphanumeric = re.compile('^[\w\d\s]+$')
 
 # The Python 2.7 CSV module does not support non-ASCII characters
 reload(sys)
@@ -28,8 +30,28 @@ def parse_records(csv_path):
 
 
 def search(artist, title, label, format):
+    if not alphanumeric.match(artist):
+        # The API can't match non alphanumeric artists :(
+        error("Uh oh! Non-alphanumeric artist!")
+        results = discogs.search(
+            release_title=title,
+            label=label,
+            format=format,
+            type='release')
+        filtered = [r for r in results if artist.strip() in [a.name.strip() for a in r.artists]]
+        if len(filtered) > 0:
+            return filtered
+
+        results = discogs.search(
+            release_title=title,
+            format='Vinyl',
+            type='release')
+        filtered = [r for r in results if artist.strip() in [a.name.strip() for a in r.artists]]
+        if len(filtered) > 0:
+            return filtered
+
     results = discogs.search(
-        artist=nonalphanumeric.sub('', artist),  # remove non-alphanumeric, the API can't handle them
+        artist=artist,  # remove non-alphanumeric, the API can't handle them
         release_title=title,
         label=label,
         format=format,
@@ -63,18 +85,14 @@ def search(artist, title, label, format):
 
 
 def find_version(results, record):
-    best = []
-    max_score = -1
-    for result in results:
-        score = score_result(result, record)
-        print(score)
-        if score > max_score:
-            max_score = score
+    scored = [(score_result(result, record), result) for result in results]
+    max_score = max([s[0] for s in scored])
 
-    for result in results:
-        score = score_result(result, record)
-        if score == max_score:
-            best.append(result)
+    best = []
+    for s in scored:
+        print(str(s[0]) + ' = ' + str(s[1].id))
+        if s[0] == max_score:
+            best.append(s[1])
 
     best_best = None
     best_score = -1
@@ -89,7 +107,7 @@ def find_version(results, record):
 
 def score_result(result, record):
     label_score = 0
-    if result.labels is not None:
+    if result.labels:
         for label in result.labels:
             score = SequenceMatcher(None, label.name, record['Label']).ratio()
             if score > label_score:
@@ -103,14 +121,30 @@ def score_result(result, record):
         + label_score  # - year_diff
 
 
-for record in parse_records(csv_path):
-    if record['Status'] != 'Wanted':
-        print('\nSearching for ' + str(record))
-        results = search(record['Artist'], record['Title'], record['Label'], record['Type'])
+def log(log_file, message, err=False):
+    if err:
+        error(message)
+        log_file.write('### ' + message + ' ###\n')
+    else:
+        print(message)
+        log_file.write(message + '\n')
 
-        if results.count == 0:
-            error("No results found")
-        else:
-            print(str(results.count) + ' results')
-            release = find_version(results, record)
-            print(release)
+
+with open("nerddisco.log", "w") as log_file:
+    for record in parse_records(csv_path):
+        if record['Status'] != 'Wanted':
+            log(log_file, '\nSearching for ' + str(record))
+            results = search(record['Artist'], record['Title'], record['Label'], record['Type'])
+
+            num = len(results) if type(results) is list else results.count
+            if num == 0:
+                log(log_file, 'No results found', True)
+            else:
+                release = find_version(results, record)
+                log(log_file, str(num) + ' results, using ' + str(release.id))
+
+                url = discogs._base_url + '/users/' + username + '/collection/folders/1/releases/' + str(release.id)
+                discogs._post(url, None)
+
+        log_file.flush()
+        os.fsync(log_file)

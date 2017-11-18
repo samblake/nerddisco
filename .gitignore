@@ -102,3 +102,4 @@ ENV/
 
 /recordnerd.csv
 /token
+/*.log
