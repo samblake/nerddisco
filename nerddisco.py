@@ -46,9 +46,10 @@ def search(artist, title, label, format):
             release_title=title,
             format='Vinyl',
             type='release')
-        filtered = [r for r in results if artist.strip() in [a.name.strip() for a in r.artists]]
-        if len(filtered) > 0:
-            return filtered
+        if results.count < 50:
+            filtered = [r for r in results if artist.strip() in [a.name.strip() for a in r.artists]]
+            if len(filtered) > 0:
+                return filtered
 
     results = discogs.search(
         artist=artist,  # remove non-alphanumeric, the API can't handle them
