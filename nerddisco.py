@@ -134,18 +134,21 @@ def log(log_file, message, err=False):
 with open("nerddisco.log", "w") as log_file:
     for record in parse_records(csv_path):
         if record['Status'] != 'Wanted':
-            log(log_file, '\nSearching for ' + str(record))
-            results = search(record['Artist'], record['Title'], record['Label'], record['Type'])
+            try:
+                log(log_file, '\nSearching for ' + str(record))
+                results = search(record['Artist'], record['Title'], record['Label'], record['Type'])
 
-            num = len(results) if type(results) is list else results.count
-            if num == 0:
-                log(log_file, 'No results found', True)
-            else:
-                release = find_version(results, record)
-                log(log_file, str(num) + ' results, using ' + str(release.id))
+                num = len(results) if type(results) is list else results.count
+                if num == 0:
+                    log(log_file, 'No results found', True)
+                else:
+                    release = find_version(results, record)
+                    log(log_file, str(num) + ' results, using ' + str(release.id))
 
-                url = discogs._base_url + '/users/' + username + '/collection/folders/1/releases/' + str(release.id)
-                discogs._post(url, None)
+                    url = discogs._base_url + '/users/' + username + '/collection/folders/1/releases/' + str(release.id)
+                    discogs._post(url, None)
+            except:
+                print("Unexpected error:", sys.exc_info()[0])
 
         log_file.flush()
         os.fsync(log_file)
