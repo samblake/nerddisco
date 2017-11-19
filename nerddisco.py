@@ -52,7 +52,7 @@ def search(artist, title, label, format):
                 return filtered
 
     results = discogs.search(
-        artist=artist,  # remove non-alphanumeric, the API can't handle them
+        artist=artist,
         release_title=title,
         label=label,
         format=format,
@@ -147,7 +147,7 @@ with open("nerddisco.log", "w") as log_file:
 
                     url = discogs._base_url + '/users/' + username + '/collection/folders/1/releases/' + str(release.id)
                     discogs._post(url, None)
-            except:
+            except Exception:
                 error("Unexpected error:", sys.exc_info()[0])
 
         log_file.flush()
