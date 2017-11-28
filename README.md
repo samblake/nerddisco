@@ -1,4 +1,4 @@
-# nerdisco
+# Nerd Disco
 
 Export your Record Nerd collection and upload it into Discogs.
 
